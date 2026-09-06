@@ -29,6 +29,7 @@ public class Commandbuy extends EssentialsCommand {
     }
 
     // Starting point for when the command is run
+    // Args is an array with name of item in postion 0 and amount in position 1.
     @Override
     public void run(final Server server, final User user, final String commandLabel, final String[] args) throws Exception {
         BigDecimal totalWorth = BigDecimal.ZERO;
@@ -38,7 +39,7 @@ public class Commandbuy extends EssentialsCommand {
             throw new NotEnoughArgumentsException();
         }
 
-        final ItemStack is = ess.getItemDb().get("gold_ingot", 1);
+        final ItemStack is = ess.getItemDb().get(args[0]);
         int count = 0;
 
         totalWorth = totalWorth.add(buyItem(user, is, args));
@@ -54,9 +55,10 @@ public class Commandbuy extends EssentialsCommand {
     }
 
     private BigDecimal buyItem(final User user, final ItemStack is, final String[] args) throws Exception {
-        final int amount = 1; // Replace this with actual amount
+        final int amount = Integer.parseInt(args[1]);
         final BigDecimal originalWorth = ess.getWorth().getPrice(ess, is);
         final BigDecimal worth = originalWorth == null ? null : originalWorth.multiply(ess.getSettings().getMultiplier(user));
+        final BigDecimal playerMoney = user.getMoney();
 
         if (worth == null) {
             throw new TranslatableException("itemCannotBeBought");
@@ -70,13 +72,21 @@ public class Commandbuy extends EssentialsCommand {
 
         final ItemStack ris = is.clone();
         ris.setAmount(amount);
-        
+
+        // Take the money from the account
+        // But only if the player has enough money
+        if (playerMoney.compareTo(worth) > 0) {
+            user.takeMoney(result, null, UserBalanceUpdateEvent.Cause.COMMAND_BUY);
+        } else {
+            throw new TranslatableException("notEnoughMoney");
+        }
+
+        // Give the items the user is trying to buy
         Inventories.addItem(user.getBase(), user.isAuthorized("essentials.oversizedstacks") ? ess.getSettings().getOversizedStackSize() : 0, ris);
 
         user.getBase().updateInventory();
         Trade.log("Command", "Buy", "Item", user.getName(), new Trade(ris, ess), user.getName(), new Trade(result, ess), user.getLocation(), user.getMoney(), ess);
-        // Needs to be changed to a method for taking money
-        user.takeMoney(result, null, UserBalanceUpdateEvent.Cause.COMMAND_BUY);
+
         final String typeName = is.getType().toString().toLowerCase(Locale.ENGLISH);
         final AdventureUtil.ParsedPlaceholder worthDisplay = AdventureUtil.parsed(NumberUtil.displayCurrency(worth, ess));
         user.sendTl("itemBought", AdventureUtil.parsed(NumberUtil.displayCurrency(result, ess)), amount, typeName, worthDisplay);
