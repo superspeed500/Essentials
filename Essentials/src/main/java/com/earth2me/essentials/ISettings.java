@@ -387,8 +387,6 @@ public interface ISettings extends IConf {
 
     boolean isAllowSellNamedItems();
 
-    boolean isAllowBuyNamedItems();
-
     boolean isAddingPrefixInPlayerlist();
 
     boolean isAddingSuffixInPlayerlist();

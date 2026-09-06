@@ -1952,11 +1952,6 @@ public class Settings implements net.ess3.api.ISettings {
     }
 
     @Override
-    public boolean isAllowBuyNamedItems() {
-        return config.getBoolean("allow-buying-named-items", false);
-    }
-
-    @Override
     public boolean isAddingPrefixInPlayerlist() {
         return config.getBoolean("add-prefix-in-playerlist", false);
     }

@@ -67,7 +67,7 @@ public class Commandbuy extends EssentialsCommand {
 
         // Take the money from the account
         // But only if the player has enough money
-        if (playerMoney.compareTo(worth) > 0) {
+        if (playerMoney.compareTo(result) > 0) {
             user.takeMoney(result, null, UserBalanceUpdateEvent.Cause.COMMAND_BUY);
         } else {
             throw new TranslatableException("notEnoughMoney");
@@ -95,6 +95,15 @@ public class Commandbuy extends EssentialsCommand {
         user.sendTl("itemBought", AdventureUtil.parsed(NumberUtil.displayCurrency(result, ess)), amount, typeName, worthDisplay);
         ess.getLogger().log(Level.INFO, ess.getAdventureFacet().miniToLegacy(tlLiteral("itemBoughtConsole", user.getName(), typeName, ess.getAdventureFacet().miniToLegacy(NumberUtil.displayCurrency(result, ess)), amount, ess.getAdventureFacet().miniToLegacy(worthDisplay.toString()), user.getDisplayName())));
         return result;
+    }
+
+    // We need to override the getMatchingItems function because we only want to list out all the possible items that exists.
+    // The default ArrayList of inventory, hand and block does not make sense with this command at the moment.
+    @Override
+    protected List<String> getMatchingItems(final String arg) {
+        final List<String> items = Lists.newArrayList();
+        items.addAll(getItems());
+        return items;
     }
 
     @Override
