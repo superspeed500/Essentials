@@ -32,61 +32,17 @@ public class Commandbuy extends EssentialsCommand {
     @Override
     public void run(final Server server, final User user, final String commandLabel, final String[] args) throws Exception {
         BigDecimal totalWorth = BigDecimal.ZERO;
+
         // Throw an error if the user has not specified enough arguments.
         if (args.length < 1) {
             throw new NotEnoughArgumentsException();
         }
 
-        // Let's check if the user is authorized to buy more of the stuff in hand
-        // Consider removing the first if.
-        if (args[0].equalsIgnoreCase("hand") && !user.isAuthorized("essentials.buy.hand")) {
-            throw new TranslatableException("buyHandPermission");
-        } else if ((args[0].equalsIgnoreCase("inventory") || args[0].equalsIgnoreCase("invent") || args[0].equalsIgnoreCase("all")) && !user.isAuthorized("essentials.buy.bulk")) {
-            throw new TranslatableException("buyBulkPermission");
-        }
-
-        final List<ItemStack> is = ess.getItemDb().getMatching(user, args);
+        final ItemStack is = ess.getItemDb().get("gold_ingot", 1);
         int count = 0;
 
-        final boolean isBulk = is.size() > 1;
+        totalWorth = totalWorth.add(buyItem(user, is, args));
 
-        final List<ItemStack> notBought = new ArrayList<>();
-        for (ItemStack stack : is) {
-            if (!ess.getSettings().isAllowBuyNamedItems()) {
-                if (stack.getItemMeta() != null && stack.getItemMeta().hasDisplayName()) {
-                    if (isBulk) {
-                        notBought.add(stack);
-                        continue;
-                    }
-                    throw new TranslatableException("cannotBuyNamedItem");
-                }
-            }
-            try {
-                if (stack.getAmount() > 0) {
-                    totalWorth = totalWorth.add(buyItem(user, stack, args, isBulk));
-                    stack = stack.clone();
-                    count++;
-                    for (final ItemStack zeroStack : is) {
-                        if (zeroStack.isSimilar(stack)) {
-                            zeroStack.setAmount(0);
-                        }
-                    }
-                }
-            } catch (final Exception e) {
-                if (!isBulk) {
-                    throw e;
-                }
-            }
-        }
-        if (!notBought.isEmpty()) {
-            final List<String> names = new ArrayList<>();
-            for (final ItemStack stack : notBought {
-                if (stack.getItemMeta() != null) { //This was already validated but IDE still freaks out
-                    names.add(stack.getItemMeta().getDisplayName());
-                }
-            }
-            ess.showError(user.getSource(), new TranslatableException("cannotBuyTheseNamedItems", String.join(ChatColor.RESET + ", ", names)), commandLabel);
-        }
         if (count != 1) {
             final AdventureUtil.ParsedPlaceholder totalWorthStr = AdventureUtil.parsed(NumberUtil.displayCurrency(totalWorth, ess));
             if (args[0].equalsIgnoreCase("blocks")) {
@@ -97,8 +53,8 @@ public class Commandbuy extends EssentialsCommand {
         }
     }
 
-    private BigDecimal buyItem(final User user, final ItemStack is, final String[] args, final boolean isBulkBuy) throws Exception {
-        final int amount = ess.getWorth().getAmount(ess, user, is, args, isBulkBuy);
+    private BigDecimal buyItem(final User user, final ItemStack is, final String[] args) throws Exception {
+        final int amount = 1; // Replace this with actual amount
         final BigDecimal originalWorth = ess.getWorth().getPrice(ess, is);
         final BigDecimal worth = originalWorth == null ? null : originalWorth.multiply(ess.getSettings().getMultiplier(user));
 
@@ -107,24 +63,16 @@ public class Commandbuy extends EssentialsCommand {
         }
 
         if (amount <= 0) {
-            if (!isBulkSell) {
-                user.sendTl("itemBought", AdventureUtil.parsed(NumberUtil.displayCurrency(BigDecimal.ZERO, ess)), BigDecimal.ZERO, is.getType().toString().toLowerCase(Locale.ENGLISH), NumberUtil.displayCurrency(worth, ess));
-            }
             return BigDecimal.ZERO;
         }
 
         final BigDecimal result = worth.multiply(BigDecimal.valueOf(amount));
 
-        //TODO: Prices for Enchantments
         final ItemStack ris = is.clone();
         ris.setAmount(amount);
-        // This statement is for checking if more items that is in inventory is trying to be sold. Should never happen.
-        // Needs to be rewritten into a check about if more gold is consumed.
-        if (!Inventories.containsAtLeast(user.getBase(), ris, amount)) {
-            // This should never happen.
-            throw new IllegalStateException("Trying to remove more items than are available.");
-        }
-        Inventories.removeItemAmount(user.getBase(), ris, ris.getAmount());
+        
+        Inventories.addItem(user.getBase(), user.isAuthorized("essentials.oversizedstacks") ? ess.getSettings().getOversizedStackSize() : 0, ris);
+
         user.getBase().updateInventory();
         Trade.log("Command", "Buy", "Item", user.getName(), new Trade(ris, ess), user.getName(), new Trade(result, ess), user.getLocation(), user.getMoney(), ess);
         // Needs to be changed to a method for taking money

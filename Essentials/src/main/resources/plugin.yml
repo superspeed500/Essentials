@@ -78,7 +78,7 @@ commands:
     aliases: [eburn]
   buy:
     description: Buys item 
-    usage: /<command> <<itemname>|<id>|hand|inventory|blocks> [amount]
+    usage: /<command> <<itemname>|<id>> [amount]
     aliases: [ebuy]
   cartographytable:
     description: Opens up a cartography table.
