@@ -8,16 +8,15 @@ import com.earth2me.essentials.utils.NumberUtil;
 import com.google.common.collect.Lists;
 import net.ess3.api.TranslatableException;
 import net.ess3.api.events.UserBalanceUpdateEvent;
-import org.bukkit.ChatColor;
 import org.bukkit.Server;
+import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
-
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
+import java.util.Map;
 
 import static com.earth2me.essentials.I18n.tlLiteral;
 
@@ -40,18 +39,8 @@ public class Commandbuy extends EssentialsCommand {
         }
 
         final ItemStack is = ess.getItemDb().get(args[0]);
-        int count = 0;
 
         totalWorth = totalWorth.add(buyItem(user, is, args));
-
-        if (count != 1) {
-            final AdventureUtil.ParsedPlaceholder totalWorthStr = AdventureUtil.parsed(NumberUtil.displayCurrency(totalWorth, ess));
-            if (args[0].equalsIgnoreCase("blocks")) {
-                user.sendTl("totalWorthBlocks", totalWorthStr, totalWorthStr);
-            } else {
-                user.sendTl("totalWorthAll", totalWorthStr, totalWorthStr);
-            }
-        }
     }
 
     private BigDecimal buyItem(final User user, final ItemStack is, final String[] args) throws Exception {
@@ -59,17 +48,20 @@ public class Commandbuy extends EssentialsCommand {
         final BigDecimal originalWorth = ess.getWorth().getPrice(ess, is);
         final BigDecimal worth = originalWorth == null ? null : originalWorth.multiply(ess.getSettings().getMultiplier(user));
         final BigDecimal playerMoney = user.getMoney();
+        final boolean isDropItemsIfFull = ess.getSettings().isDropItemsIfFull();
 
+        // Check if the item can be sold
         if (worth == null) {
             throw new TranslatableException("itemCannotBeBought");
         }
 
+        // Input validation, check if the user is trying to buy a valid amount of item
         if (amount <= 0) {
             return BigDecimal.ZERO;
         }
 
+        // Get the total worth of all instances of the item
         final BigDecimal result = worth.multiply(BigDecimal.valueOf(amount));
-
         final ItemStack ris = is.clone();
         ris.setAmount(amount);
 
@@ -82,7 +74,18 @@ public class Commandbuy extends EssentialsCommand {
         }
 
         // Give the items the user is trying to buy
-        Inventories.addItem(user.getBase(), user.isAuthorized("essentials.oversizedstacks") ? ess.getSettings().getOversizedStackSize() : 0, ris);
+        // addITem returns any leftover items that can not be given to the player
+        final Map<Integer, ItemStack> leftoverItems = Inventories.addItem(user.getBase(), user.isAuthorized("essentials.oversizedstacks") ? ess.getSettings().getOversizedStackSize() : 0, ris);
+
+        // Only drop items if Essentials is configured to drop items if full
+        for (final ItemStack item : leftoverItems.values()) {
+            if (isDropItemsIfFull) {
+                final World w = user.getWorld();
+                w.dropItemNaturally(user.getLocation(), item);
+            } else {
+                user.sendTl("giveSpawnFailure", item.getAmount(), args[0], user.getDisplayName());
+            }
+        }
 
         user.getBase().updateInventory();
         Trade.log("Command", "Buy", "Item", user.getName(), new Trade(ris, ess), user.getName(), new Trade(result, ess), user.getLocation(), user.getMoney(), ess);
